@@ -30,20 +30,19 @@
 #include <ESP8266WebServer.h>
 #include <ESP8266mDNS.h>
 
-extern "C" {
-  #include "user_interface.h"
-}
 boolean serialDebug = true;
 
 const char* ssid = "WalkingrobotLab";
 const char* password = "";
 char dhcp_client_name[] = "spaceopen";
 
+boolean st = false; 
+
 ESP8266WebServer server(80);
 
-int switchPin = 1;                     // Digital pin used to form circuit
-int led1Pin = 3;                     
-int led2Pin = 16; 
+int switchPin = 2;                     // Digital pin used to form circuit
+int led1Pin = 4;                     
+int led2Pin = 5; 
 
 String close_text = "<div class=\"alert alert-danger\"><strong>We are closed.</strong> Check our website for opening hours.</div>";
 String open_text = "<div class=\"alert alert-success\"><strong>We are open.</strong> Join us!</div>";
@@ -77,19 +76,24 @@ String text2 = "            </div>"
 "</html>";
 
 void handleRoot() {
-
-  if (digitalRead(switchPin) == LOW) {
+  if (!st) {
     if (serialDebug) Serial.println("Space closed");
     server.send(200, "text/html", text1 + close_text + text2);
-    
-    digitalWrite(led1Pin, 0);
-    digitalWrite(led2Pin, 1);
   }else{
     if (serialDebug) Serial.println("Space open");
-    server.send(200, "text/html", text1 + open_text + text2);
+    server.send(200, "text/html", text1 + open_text + text2);    
+  }
+}
 
-    digitalWrite(led1Pin, 1);
-    digitalWrite(led2Pin, 0);
+void isOpen(){
+  if (digitalRead(switchPin) == LOW) {
+    st = false;
+    digitalWrite(led1Pin, LOW);
+    digitalWrite(led2Pin, HIGH);
+  }else{
+    st = true;
+    digitalWrite(led1Pin, HIGH);
+    digitalWrite(led2Pin, LOW);
   }
 }
 
@@ -98,9 +102,11 @@ void setup(void){
   pinMode(led1Pin, OUTPUT);
   pinMode(led2Pin, OUTPUT);
 
+  digitalWrite(led1Pin, LOW);
+  digitalWrite(led2Pin, LOW);
+
   if (serialDebug) Serial.begin(115200);
   WiFi.begin(ssid, password);
-  wifi_station_set_hostname(dhcp_client_name);
   if (serialDebug) Serial.println("");
 
   // Wait for connection
@@ -116,7 +122,7 @@ void setup(void){
     Serial.println(WiFi.localIP());
   }
   
-  if (MDNS.begin("esp8266")) {
+  if (MDNS.begin(dhcp_client_name)) {
     Serial.println("MDNS responder started");
   }
 
@@ -128,5 +134,6 @@ void setup(void){
 }
 
 void loop(void){
+  isOpen();
   server.handleClient();
 }
